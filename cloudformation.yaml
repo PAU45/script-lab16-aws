@@ -10,17 +10,17 @@ Description: |
 Parameters:
   Context:
     Type: String
-    Description: Identificador compacto del curso o proyecto (ej. dsn5a, crmpiloto).
-    Default: PBMC
+    Description: Identificador compacto del curso o proyecto (ej. dsn5a, crmpiloto). Usa solo minúsculas para compatibilidad con S3.
+    Default: pbmc
   
   LabNum:
     Type: String
-    Description: Número del laboratorio o sprint (ej. lab16, sprint04).
+    Description: Número del laboratorio o sprint (ej. lab16, sprint04). Usa solo minúsculas para compatibilidad con S3.
     Default: lab16
 
   UserID:
     Type: String
-    Description: Tu identificador de usuario (ej. asmith, jdoe).
+    Description: Tu identificador de usuario (ej. asmith, jdoe). Usa solo minúsculas para compatibilidad con S3.
     Default: paulo
 
   CycleSection:
@@ -270,21 +270,15 @@ Resources:
         - Key: ProjectName
           Value: AsesoresTI-PBMC
 
-  PBMCMWebAssetsS3Bucket:
+  pbmcmwebassetss3bucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName:
-        Fn::Sub:
-          - "${context}-${labnum}-${userid}-s3-imagenesweb"
-          - {
-              context: { "Fn::ToLower": [ { "Ref": "Context" } ] },
-              labnum: { "Fn::ToLower": [ { "Ref": "LabNum" } ] },
-              userid: { "Fn::ToLower": [ { "Ref": "UserID" } ] }
-            }
+      BucketName: !Sub "${Context}-${LabNum}-${UserID}-s3-imagenesweb"
       VersioningConfiguration:
         Status: Suspended 
-      AccessControl: PublicRead 
-      PublicAccessBlockConfiguration: 
+      # AccessControl eliminado porque no es compatible con BucketOwnerEnforced
+      # ObjectOwnership eliminado porque no es compatible en esta región/versión
+      PublicAccessBlockConfiguration:
         BlockPublicAcls: false
         BlockPublicPolicy: false
         IgnorePublicAcls: false
@@ -310,7 +304,7 @@ Resources:
   PBMCMWebAssetsS3BucketPolicy:
     Type: AWS::S3::BucketPolicy
     Properties:
-      Bucket: !Ref PBMCMWebAssetsS3Bucket
+      Bucket: !Ref pbmcmwebassetss3bucket
       PolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -318,7 +312,7 @@ Resources:
             Effect: Allow
             Principal: '*'
             Action: 's3:GetObject'
-            Resource: !Sub 'arn:aws:s3:::${PBMCMWebAssetsS3Bucket}/*' 
+            Resource: !Sub 'arn:aws:s3:::${Context}-${LabNum}-${UserID}-s3-imagenesweb/*'
 
   PBMCMWebServerEC2:
     Type: AWS::EC2::Instance
