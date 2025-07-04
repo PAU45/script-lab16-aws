@@ -1,0 +1,534 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: |
+  Plantilla CloudFormation para el Laboratorio 16 de Asesores TI (Proyecto PBMC).
+  Despliega una VPC, subredes, Internet Gateway, tabla de rutas,
+  una instancia EC2 con un servidor web simple (Apache), un bucket S3
+  (con acceso público de lectura para mostrar imágenes), y los roles IAM necesarios,
+  siguiendo estrictamente la política de nomenclatura y etiquetado para entornos
+  formativos/proyectos. La página web muestra contenido dinámico y carga imágenes desde S3.
+
+Parameters:
+  Context:
+    Type: String
+    Description: Identificador compacto del curso o proyecto (ej. dsn5a, crmpiloto).
+    Default: PBMC
+  
+  LabNum:
+    Type: String
+    Description: Número del laboratorio o sprint (ej. lab16, sprint04).
+    Default: lab16
+
+  UserID:
+    Type: String
+    Description: Tu identificador de usuario (ej. asmith, jdoe).
+    Default: paulo
+
+  CycleSection:
+    Type: String
+    Description: Solo para cursos: Ciclo y Sección (ej. 5A, 6B). N/A para proyectos.
+    Default: N/A
+
+  CreationDate:
+    Type: String
+    Description: Fecha de creación del stack (YYYY-MM-DD).
+    Default: 2025-07-04
+
+  CleanupDate:
+    Type: String
+    Description: Fecha límite para eliminar los recursos (YYYY-MM-DD).
+    Default: 2025-07-11
+
+  KeyPairName:
+    Type: String
+    Description: Nombre de tu par de claves SSH existente para la instancia EC2.
+    Default: PBMC-lab16-key
+
+  AllowedSshCidr:
+    Type: String
+    Description: Rango CIDR para permitir el acceso SSH (ej. 0.0.0.0/0 para cualquier IP, o tu IP específica /32).
+    Default: 0.0.0.0/0
+
+  AmiId:
+    Type: String
+    Description: AMI ID de Amazon Linux 2023 (o similar) para la región.
+    Default: ami-05ffe3c48a9991133
+
+Resources:
+  PBMCMVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${Context}-${LabNum}-${UserID}-vpc-main"
+        - Key: ContextID
+          Value: !Ref Context
+        - Key: ActivityID
+          Value: !Ref LabNum
+        - Key: UserID
+          Value: !Ref UserID
+        - Key: CreationDate
+          Value: !Ref CreationDate
+        - Key: CleanupDate
+          Value: !Ref CleanupDate
+        - Key: CycleSection
+          Value: !Ref CycleSection
+        - Key: ProjectName
+          Value: AsesoresTI-PBMC
+
+  PBMCMInternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub "${Context}-${LabNum}-${UserID}-igw-main"
+        - Key: ContextID
+          Value: !Ref Context
+        - Key: ActivityID
+          Value: !Ref LabNum
+        - Key: UserID
+          Value: !Ref UserID
+        - Key: CreationDate
+          Value: !Ref CreationDate
+        - Key: CleanupDate
+          Value: !Ref CleanupDate
+        - Key: CycleSection
+          Value: !Ref CycleSection
+        - Key: ProjectName
+          Value: AsesoresTI-PBMC
+
+  AttachPBMCMGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref PBMCMVPC
+      InternetGatewayId: !Ref PBMCMInternetGateway
+
+  PBMCMVPublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref PBMCMVPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs ""] 
+      MapPublicIpOnLaunch: true 
+      Tags:
+        - Key: Name
+          Value: !Sub "${Context}-${LabNum}-${UserID}-subnet-public1"
+        - Key: ContextID
+          Value: !Ref Context
+        - Key: ActivityID
+          Value: !Ref LabNum
+        - Key: UserID
+          Value: !Ref UserID
+        - Key: CreationDate
+          Value: !Ref CreationDate
+        - Key: CleanupDate
+          Value: !Ref CleanupDate
+        - Key: CycleSection
+          Value: !Ref CycleSection
+        - Key: ProjectName
+          Value: AsesoresTI-PBMC
+
+  PBMCMVPublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref PBMCMVPC
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: !Select [1, !GetAZs ""] 
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${Context}-${LabNum}-${UserID}-subnet-public2"
+        - Key: ContextID
+          Value: !Ref Context
+        - Key: ActivityID
+          Value: !Ref LabNum
+        - Key: UserID
+          Value: !Ref UserID
+        - Key: CreationDate
+          Value: !Ref CreationDate
+        - Key: CleanupDate
+          Value: !Ref CleanupDate
+        - Key: CycleSection
+          Value: !Ref CycleSection
+        - Key: ProjectName
+          Value: AsesoresTI-PBMC
+
+  PBMCMVPublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref PBMCMVPC
+      Tags:
+        - Key: Name
+          Value: !Sub "${Context}-${LabNum}-${UserID}-rtb-public"
+        - Key: ContextID
+          Value: !Ref Context
+        - Key: ActivityID
+          Value: !Ref LabNum
+        - Key: UserID
+          Value: !Ref UserID
+        - Key: CreationDate
+          Value: !Ref CreationDate
+        - Key: CleanupDate
+          Value: !Ref CleanupDate
+        - Key: CycleSection
+          Value: !Ref CycleSection
+        - Key: ProjectName
+          Value: AsesoresTI-PBMC
+
+  PBMCMVPublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: AttachPBMCMGateway 
+    Properties:
+      RouteTableId: !Ref PBMCMVPublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref PBMCMInternetGateway
+
+  PBMCMVPublicSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PBMCMVPublicSubnet1
+      RouteTableId: !Ref PBMCMVPublicRouteTable
+
+  PBMCMVPublicSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PBMCMVPublicSubnet2
+      RouteTableId: !Ref PBMCMVPublicRouteTable
+
+  PBMCMEC2S3AccessRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
+      Path: /
+      Tags:
+        - Key: Name
+          Value: !Sub "${Context}-${LabNum}-${UserID}-iamrole-ec2s3"
+        - Key: ContextID
+          Value: !Ref Context
+        - Key: ActivityID
+          Value: !Ref LabNum
+        - Key: UserID
+          Value: !Ref UserID
+        - Key: CreationDate
+          Value: !Ref CreationDate
+        - Key: CleanupDate
+          Value: !Ref CleanupDate
+        - Key: CycleSection
+          Value: !Ref CycleSection
+        - Key: ProjectName
+          Value: AsesoresTI-PBMC
+
+  PBMCMEC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref PBMCMEC2S3AccessRole
+      InstanceProfileName: !Sub "${Context}-${LabNum}-${UserID}-instanceprofile-ec2s3"
+      Path: /
+
+  PBMCMWebSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Habilita acceso SSH y HTTP al servidor web de PBMC
+      VpcId: !Ref PBMCMVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref AllowedSshCidr 
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0 
+      Tags:
+        - Key: Name
+          Value: !Sub "${Context}-${LabNum}-${UserID}-sg-webpublic"
+        - Key: ContextID
+          Value: !Ref Context
+        - Key: ActivityID
+          Value: !Ref LabNum
+        - Key: UserID
+          Value: !Ref UserID
+        - Key: CreationDate
+          Value: !Ref CreationDate
+        - Key: CleanupDate
+          Value: !Ref CleanupDate
+        - Key: CycleSection
+          Value: !Ref CycleSection
+        - Key: ProjectName
+          Value: AsesoresTI-PBMC
+
+  PBMCMWebAssetsS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${Context}-${LabNum}-${UserID}-s3-imagenesweb"
+      VersioningConfiguration:
+        Status: Suspended 
+      AccessControl: PublicRead 
+      PublicAccessBlockConfiguration: 
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+      Tags: 
+        - Key: Name
+          Value: !Sub "${Context}-${LabNum}-${UserID}-s3-imagenesweb"
+        - Key: ContextID
+          Value: !Ref Context
+        - Key: ActivityID
+          Value: !Ref LabNum
+        - Key: UserID
+          Value: !Ref UserID
+        - Key: CreationDate
+          Value: !Ref CreationDate
+        - Key: CleanupDate
+          Value: !Ref CleanupDate
+        - Key: CycleSection
+          Value: !Ref CycleSection
+        - Key: ProjectName
+          Value: AsesoresTI-PBMC
+
+  PBMCMWebAssetsS3BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref PBMCMWebAssetsS3Bucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: PublicReadGetObject
+            Effect: Allow
+            Principal: '*'
+            Action: 's3:GetObject'
+            Resource: !Sub 'arn:aws:s3:::${PBMCMWebAssetsS3Bucket}/*' 
+
+  PBMCMWebServerEC2:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref AmiId
+      InstanceType: t2.micro
+      KeyName: !Ref KeyPairName
+      IamInstanceProfile: !Ref PBMCMEC2InstanceProfile 
+      NetworkInterfaces:
+        - DeviceIndex: '0'
+          SubnetId: !Ref PBMCMVPublicSubnet1
+          GroupSet:
+            - !Ref PBMCMWebSecurityGroup
+          AssociatePublicIpAddress: true 
+      UserData: !Base64 |
+        #!/bin/bash -xe
+
+        # Actualizar paquetes
+        yum update -y
+
+        # Instalar Apache
+        yum install -y httpd
+
+        # Iniciar Apache
+        systemctl start httpd
+        systemctl enable httpd
+
+        # Obtener el nombre del bucket S3 y la región para las URLs de las imágenes
+        # Asegúrate de que los nombres de las imágenes coincidan exactamente
+        # con los nombres de archivo que subirás a tu bucket S3.
+        S3_BUCKET_NAME="${PBMCMWebAssetsS3Bucket}"
+        AWS_REGION="${AWS::Region}"
+
+        # --- Crear la página HTML con CSS integrado y mostrando imágenes del bucket S3 ---
+        cat <<EOF > /var/www/html/index.html
+        <!DOCTYPE html>
+        <html lang="es">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Asesores TI - Transformación Digital</title>
+            <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+            <style>
+                body {
+                    font-family: 'Roboto', sans-serif;
+                    margin: 0;
+                    padding: 0;
+                    background: linear-gradient(to right, #ece9e6, #ffffff); /* Fondo degradado */
+                    color: #333;
+                    display: flex;
+                    flex-direction: column;
+                    min-height: 100vh;
+                    line-height: 1.6;
+                }
+                .container {
+                    max-width: 960px;
+                    margin: 40px auto;
+                    padding: 30px 40px;
+                    background-color: #ffffff;
+                    border-radius: 15px;
+                    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+                    text-align: center;
+                }
+                header {
+                    background-color: #2c3e50; /* Azul oscuro */
+                    color: #ecf0f1;
+                    padding: 30px 0;
+                    border-radius: 12px 12px 0 0;
+                    margin-bottom: 40px;
+                    position: relative; /* Para posicionar el logo */
+                }
+                .header-content {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                }
+                header img.logo {
+                    width: 150px; /* Tamaño del logo */
+                    height: auto;
+                    margin-bottom: 15px;
+                    border-radius: 50%; /* Opcional: para logos circulares */
+                    border: 4px solid #e67e22; /* Borde para el logo */
+                    box-shadow: 0 0 15px rgba(0, 0, 0, 0.3);
+                }
+                header h1 {
+                    margin: 0;
+                    font-size: 3.2em;
+                    letter-spacing: 1.5px;
+                    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+                }
+                header p {
+                    font-size: 1.2em;
+                    margin-top: 10px;
+                    opacity: 0.9;
+                }
+                .section {
+                    margin-bottom: 40px;
+                    padding: 0 20px;
+                }
+                h2 {
+                    color: #2980b9; /* Azul medio */
+                    font-size: 2.2em;
+                    padding-bottom: 15px;
+                    margin-top: 40px;
+                    position: relative;
+                }
+                h2::after {
+                    content: '';
+                    position: absolute;
+                    left: 50%;
+                    bottom: 0;
+                    transform: translateX(-50%);
+                    height: 3px;
+                    width: 80px;
+                    background-color: #e67e22; /* Naranja */
+                    border-radius: 2px;
+                }
+                p {
+                    font-size: 1.15em;
+                    color: #555;
+                    margin-bottom: 15px;
+                }
+                b {
+                    color: #e67e22; /* Naranja */
+                }
+                .button {
+                    display: inline-block;
+                    background-color: #28a745; /* Verde */
+                    color: white;
+                    padding: 12px 25px;
+                    border-radius: 8px;
+                    text-decoration: none;
+                    font-weight: bold;
+                    margin-top: 20px;
+                    transition: background-color 0.3s ease;
+                }
+                .button:hover {
+                    background-color: #218838;
+                }
+                .image-gallery {
+                    display: flex;
+                    justify-content: center;
+                    flex-wrap: wrap;
+                    gap: 25px;
+                    margin-top: 30px;
+                }
+                .image-gallery img {
+                    width: 250px; /* Tamaño de las imágenes en la galería */
+                    height: 180px;
+                    object-fit: cover; /* Para asegurar que las imágenes llenen el espacio sin distorsión */
+                    border-radius: 10px;
+                    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
+                    transition: transform 0.3s ease, box-shadow 0.3s ease;
+                }
+                .image-gallery img:hover {
+                    transform: translateY(-5px);
+                    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+                }
+                footer {
+                    margin-top: auto;
+                    background-color: #34495e; /* Azul más oscuro */
+                    color: #ecf0f1;
+                    text-align: center;
+                    padding: 20px 0;
+                    font-size: 0.95em;
+                    border-radius: 0 0 15px 15px;
+                }
+                footer p {
+                    margin: 0;
+                    color: #ecf0f1;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <header>
+                    <div class="header-content">
+                        <img src="https://${S3_BUCKET_NAME}.s3.${AWS_REGION}.amazonaws.com/pbmc-logo.png" alt="Logo Asesores TI PBMC" class="logo">
+                        <h1>Asesores TI</h1>
+                        <p>Impulsando tu Transformación Digital en la Nube</p>
+                    </div>
+                </header>
+
+                <div class="section hero-intro">
+                    <h2>¡Descubre Nuestro Nuevo Servicio!</h2>
+                    <p>En <b>Asesores TI</b>, estamos comprometidos con la innovación continua para el éxito de tu empresa. Conoce nuestra última solución diseñada para optimizar tu infraestructura cloud.</p>
+                    <p>Parte del esfuerzo del proyecto <b>PBMC</b> (Laboratorio ${LabNum}), esta plataforma te muestra nuestras capacidades y la robustez de nuestras implementaciones.</p>
+                </div>
+
+                <div class="section service-description">
+                    <h2>Optimización Inteligente de Infraestructura Cloud con IA</h2>
+                    <p>Nuestro nuevo servicio aprovecha la inteligencia artificial para analizar y gestionar tus recursos en la nube de AWS. Reduce costos, mejora el rendimiento y asegura la máxima disponibilidad con soluciones automatizadas y predictivas.</p>
+                    <p>Con **monitorización avanzada** y **optimización de recursos en tiempo real**, garantizamos que tu infraestructura PBMC sea más eficiente, segura y escalable que nunca.</p>
+                    <p>Desplegado con la maestría de: <b>${UserID}</b></p>
+                </div>
+
+                <div class="section">
+                    <h2>Nuestras Soluciones en Imágenes</h2>
+                    <div class="image-gallery">
+                        <img src="https://${S3_BUCKET_NAME}.s3.${AWS_REGION}.amazonaws.com/servicio-ia-optimizacion.jpg" alt="Servicio de IA y Optimización Cloud">
+                        <img src="https://${S3_BUCKET_NAME}.s3.${AWS_REGION}.amazonaws.com/equipo-asesores-ti.webp" alt="Equipo de Asesores TI">
+                        <img src="https://${S3_BUCKET_NAME}.s3.${AWS_REGION}.amazonaws.com/diagrama-cloud.svg" alt="Diagrama de Arquitectura Cloud">
+                    </div>
+                </div>
+
+                <div class="section cta">
+                    <h2>¿Listo para llevar tu nube al siguiente nivel?</h2>
+                    <p>Contáctanos hoy mismo para una consultoría personalizada y descubre cómo podemos potenciar tu negocio.</p>
+                    <a href="#" class="button">Más Información</a>
+                </div>
+            </div>
+
+            <footer>
+                <p>&copy; 2025 Asesores TI - Soluciones Cloud. Todos los derechos reservados.</p>
+                <p>Infraestructura desplegada con AWS CloudFormation.</p>
+            </footer>
+        </body>
+        </html>
+        EOF
