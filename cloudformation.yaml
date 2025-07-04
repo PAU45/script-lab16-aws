@@ -25,7 +25,7 @@ Parameters:
 
   CycleSection:
     Type: String
-    Description: Solo para cursos: Ciclo y Sección (ej. 5A, 6B). N/A para proyectos.
+    Description: Solo para cursos:Ciclo y Sección (ej. 5A, 6B). N/A para proyectos.
     Default: N/A
 
   CreationDate:
