@@ -343,7 +343,7 @@ Resources:
         # Obtener el nombre del bucket S3 y la región para las URLs de las imágenes
         # Asegúrate de que los nombres de las imágenes coincidan exactamente
         # con los nombres de archivo que subirás a tu bucket S3.
-        S3_BUCKET_NAME="${PBMCMWebAssetsS3Bucket}"
+        S3_BUCKET_NAME="${pbmc-lab16-paulo-s3-imagenesweb}"
         AWS_REGION="${AWS::Region}"
 
         # --- Crear la página HTML con CSS integrado y mostrando imágenes del bucket S3 ---
