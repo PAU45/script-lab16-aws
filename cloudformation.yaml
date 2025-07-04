@@ -273,7 +273,14 @@ Resources:
   PBMCMWebAssetsS3Bucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub "${Context}-${LabNum}-${UserID}-s3-imagenesweb"
+      BucketName:
+        Fn::Sub:
+          - "${context}-${labnum}-${userid}-s3-imagenesweb"
+          - {
+              context: { "Fn::ToLower": [ { "Ref": "Context" } ] },
+              labnum: { "Fn::ToLower": [ { "Ref": "LabNum" } ] },
+              userid: { "Fn::ToLower": [ { "Ref": "UserID" } ] }
+            }
       VersioningConfiguration:
         Status: Suspended 
       AccessControl: PublicRead 
